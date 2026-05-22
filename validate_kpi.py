@@ -16,7 +16,7 @@ test_mof = {
     "Crystal_System": "cubic",
     "Space_Group": "Fm-3m",
     "MOF_id": "ABAYIO",
-    "MOF_Formula": "CuH3(CO2)3", # Bio-active metal Cu
+    "MOF_Formula": "CuH3(CO2)3", # Био-активный металл Cu
     "Total_C": 18
 }
 
@@ -32,7 +32,7 @@ if abs(pred_h2 - pred_sf6) > 1.0:
 else:
     print("WARNING: Small difference between H2 and SF6")
 
-# Check bio features
+# Проверяем био-фичи
 proc = api._preprocess_input(test_mof, "Hydrogen")
 print(f"Is bioactive: {proc['is_bioactive'].values[0]}")
 print(f"Linker type: {proc['linker_type'].values[0]}")

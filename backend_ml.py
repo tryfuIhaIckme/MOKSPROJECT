@@ -15,7 +15,7 @@ TARGET_COL = "log(D) 1bar(cm/s)"
 CATEGORICAL_FEATURES = ["Symmetry", "Shape", "Pore_PointGroup", "Crystal_System", "Space_Group", "Interaction_Symmetry", "linker_type"]
 ID_COLS = ["MOF_id", "Gas", "Formula", "Qst (kJ/mol)", "log(D0)"]
 
-# Numerical columns as specified in TOR
+# Числовые колонки согласно ТЗ
 NUMERICAL_FEATURES = [
     "PLD", "LCD", "ASA (m2/g)", "Porosity", "Pore Volume (cm3/g)", "vf", "sa_acc_m2g",
     "Pore_Symmetry_Order", "Gas_Symmetry_Order", "Symmetry_Order_Ratio", "Shape_Fit_Factor",
@@ -34,10 +34,10 @@ AMINO_ACIDS = {
 BIO_METALS = ["Fe", "Mn", "Zn", "Cu", "Ni", "Mo"]
 
 def get_bio_features(mof_id, formula, total_c):
-    # is_bioactive
+    # проверяем биоактивность
     is_bioactive = 1 if any(m in str(formula) for m in BIO_METALS) else 0
     
-    # linker_type and c_multiplicity
+    # определяем тип линкера и кратность углерода
     linker_type = "Other"
     c_mult = 0
     for aa, c_count in AMINO_ACIDS.items():
@@ -56,25 +56,25 @@ def optimize_catboost(df_path: str, n_trials: int = 10) -> Dict[str, Any]:
     print(f"Loading dataset from {df_path}...")
     df = pd.read_csv(df_path)
     
-    # Load metadata and merge
+    # Грузим метаданные и сливаем
     metadata = pd.read_csv("mof_metadata.csv")
     df = df.merge(metadata, on="MOF_id", how="left")
     
-    # Add new features
+    # Добавляем новые фичи
     print("Enriching features...")
     df["is_bioactive"], df["linker_type"], df["c_multiplicity"] = zip(*df.apply(
         lambda x: get_bio_features(x["MOF_id"], x["MOF_Formula"], x["Total_C"]), axis=1
     ))
     df["size_exclusion_delta"] = df["PLD"] - df["KineticDiameter_A"]
     
-    # Drop rows with missing values in target or features if any
+    # Дропаем строки с пустыми значениями в таргете или фичах
     df = df.dropna(subset=[TARGET_COL] + ALL_FEATURES)
     
     X = df[ALL_FEATURES]
     y = df[TARGET_COL]
     groups = df["MOF_id"]
     
-    # GroupShuffleSplit to avoid data leakage (split by MOF_id)
+    # GroupShuffleSplit чтобы избежать утечки данных (сплитим по MOF_id)
     gss = GroupShuffleSplit(n_splits=1, train_size=0.8, random_state=42)
     train_idx, val_idx = next(gss.split(X, y, groups=groups))
     
@@ -84,7 +84,7 @@ def optimize_catboost(df_path: str, n_trials: int = 10) -> Dict[str, Any]:
     def objective(trial):
         params = {
             "iterations": trial.suggest_int("iterations", 800, 2000),
-            "depth": trial.suggest_int("depth", 10, 12), # Increased depth as per TOR
+            "depth": trial.suggest_int("depth", 10, 12), # Увеличиваем глубину по ТЗ
             "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
             "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1, 10),
             "loss_function": "MAE",
@@ -191,7 +191,7 @@ class PredictorAPI:
     def __init__(self, model_path=MODEL_SAVE_PATH):
         """Initialize the API and load the pre-trained model."""
         if not os.path.exists(model_path):
-            # Try to train if model missing and dataset exists
+            # Пробуем обучить, если модели нет, но есть датасет
             if os.path.exists(DATASET_PATH):
                 print("Model not found. Initializing training...")
                 best_p = optimize_catboost(DATASET_PATH, n_trials=5)
@@ -212,12 +212,12 @@ class PredictorAPI:
         gas_info = self.GAS_DATABASE[gas_name]
         data = {**mof_params, **gas_info}
         
-        # Base derived features
+        # Базовые производные фичи
         data["Interaction_Symmetry"] = f"{data['Pore_PointGroup']}_{data['Symmetry']}"
         data["Symmetry_Order_Ratio"] = data["Pore_Symmetry_Order"] / data["Gas_Symmetry_Order"]
         data["Shape_Fit_Factor"] = (data["PLD"] - data["KineticDiameter_A"]) / (abs(data["Pore_Symmetry_Order"] - data["Gas_Symmetry_Order"]) + 0.01)
         
-        # Bio-reticular features (using MOF_id if provided, else dummy)
+        # Био-ретикулярные фичи (по MOF_id или заглушке)
         mof_id = data.get("MOF_id", "Unknown")
         mof_formula = data.get("MOF_Formula", "")
         total_c = data.get("Total_C", 0)
@@ -262,21 +262,21 @@ class PredictorAPI:
         
         shap_values = self.explainer.shap_values(input_df)
         
-        # Return feature names and their corresponding SHAP values as a dict
+        # Возвращаем названия фичей и их SHAP-значения как словарь
         explanation = dict(zip(self.feature_names, shap_values[0]))
         return explanation
 
 if __name__ == "__main__":
-    # 1. Optimize (increased trials for better quality)
+    # 1. Оптимизируем (увеличил кол-во испытаний для качества)
     best_params = optimize_catboost(DATASET_PATH, n_trials=20)
     
-    # 2. Train and Save
+    # 2. Обучаем и сохраняем
     train_and_save_model(DATASET_PATH, best_params)
     
-    # 3. Predictor API Test
+    # 3. Тест API предиктора
     api = PredictorAPI()
     
-    # Test MOF params (similar to ABAYIO)
+    # Тестовые параметры MOF (похоже на ABAYIO)
     test_mof = {
         "PLD": 4.3,
         "LCD": 11.4,
@@ -295,7 +295,7 @@ if __name__ == "__main__":
     pred = api.predict(test_mof, gas)
     print(f"\n[TEST] Predicted log(D) for {gas}: {pred:.4f}")
     
-    # Test SHAP
+    # Тестируем SHAP
     shap_vals = api.get_shap_explanation(test_mof, gas)
     print("\n[TEST] SHAP top 3 contributors:")
     sorted_shap = sorted(shap_vals.items(), key=lambda x: abs(x[1]), reverse=True)

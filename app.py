@@ -67,12 +67,12 @@ st.markdown("""
 Здесь мы исследуем, как "соответствие" симметрий молекулы-гостя и поры-хозяина влияет на транспортные свойства.
 """)
 
-# Guest Molecule Selection
+# Выбор молекулы-гостя
 st.subheader("🎯 Селекция молекулы-гостя (Guest Molecule)")
 available_gases = list(api.GAS_DATABASE.keys())
 gas_name = st.selectbox("Выберите газ:", available_gases, index=available_gases.index("Carbon dioxide") if "Carbon dioxide" in available_gases else 0)
 
-# Create Tabs
+# Создаем вкладки
 tab1, tab2, tab3, tab4 = st.tabs([
     "📊 Прогноз диффузии", 
     "🔬 Научный анализ (SHAP)", 
@@ -80,14 +80,14 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "🧪 3D Lab"
 ])
 
-# Prepare MOF params
+# Подготавливаем параметры MOF
 mof_params = {
     "PLD": pld, "LCD": lcd, "Porosity": porosity, "ASA (m2/g)": asa,
     "Pore Volume (cm3/g)": pore_vol, "vf": vf, "sa_acc_m2g": sa_acc,
     "Pore_Symmetry_Order": pore_symmetry_order, "Pore_PointGroup": pore_pg,
     "Crystal_System": crystal_system, "Space_Group": space_group,
-    "MOF_id": "User_Input", # Placeholder for feature calculation
-    "MOF_Formula": "Zn" # Dummy for bio-active check
+    "MOF_id": "User_Input", # Заглушка для расчета фичей
+    "MOF_Formula": "Zn" # Болванка для проверки биоактивности
 }
 
 def create_gauge_chart(value, title):
@@ -176,7 +176,7 @@ with tab3:
         metadata = pd.read_csv("mof_metadata.csv")
         df = df.merge(metadata, on="MOF_id", how="left")
         
-        # Add bio features
+        # Добавляем био-фичи
         from backend_ml import get_bio_features
         df["is_bioactive"], df["linker_type"], df["c_multiplicity"] = zip(*df.apply(
             lambda x: get_bio_features(x["MOF_id"], x["MOF_Formula"], x["Total_C"]), axis=1
@@ -223,7 +223,7 @@ with tab4:
         if cif_file:
             content = cif_file.read().decode("utf-8")
             st.success(f"File {cif_file.name} successfully loaded.")
-            # Simplified placeholder for 3Dmol since it requires external JS
+            # Упрощенная заглушка для 3Dmol, так как нужен внешний JS
             st.code(content[:300] + "\n...", language="text")
         else:
             st.warning("Please upload a .cif file to visualize the 3D structure.")
@@ -241,6 +241,6 @@ with tab4:
             "Polarizability": gas_props["Polarizability_1e-25_cm3"]
         })
 
-# Footer
+# Подвал сайта
 st.markdown("---")
 st.markdown("Developed for MOF Gas Permeation Research | 2026")
